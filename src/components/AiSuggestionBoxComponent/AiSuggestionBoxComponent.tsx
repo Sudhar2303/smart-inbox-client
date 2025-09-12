@@ -1,4 +1,3 @@
-
 import { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import toast from "react-hot-toast";
 import type { Email } from "../../types/email";
@@ -10,7 +9,7 @@ export interface AiSuggestionBoxRef {
 
 interface AiSuggestionBoxProps {
   email: Email;
-  onClose: () => void; 
+  onClose: () => void;
 }
 
 const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
@@ -20,7 +19,7 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
     const [draftId, setDraftId] = useState<string | null>(email.draftId || null);
     const [isEdited, setIsEdited] = useState<boolean>(false);
     const [isFocused, setIsFocused] = useState<boolean>(false);
-
+    const [isSending, setIsSending] = useState<boolean>(false);
 
     const cleanEmail = (emailString: string): string => {
       const match = emailString.match(/<(.*?)>/);
@@ -44,6 +43,7 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
           }
         } catch (err) {
           console.error("AI suggestion failed", err);
+          toast.error("Failed to load AI suggestion");
         } finally {
           setIsLoading(false);
         }
@@ -73,15 +73,25 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
             );
           }
           setIsEdited(false);
-          toast.success("Draft saved successfully ");
+          toast.success("Draft saved successfully");
         } catch (err) {
           console.error("Failed to save draft", err);
-          toast.error("Failed to save draft ");
+          toast.error("Failed to save draft");
         }
       },
     }));
 
     const handleSend = async () => {
+      if (!isEdited && !isFocused) {
+        toast.error("Please review or edit the suggestion before sending");
+        return;
+      }
+      if (!suggestion.trim()) {
+        toast.error("Cannot send empty reply");
+        return;
+      }
+
+      setIsSending(true);
       try {
         await emailService.sendDraft(
           draftId || "",
@@ -94,10 +104,12 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
         setSuggestion("");
         setIsEdited(false);
         toast.success("Email sent successfully 📧");
-        onClose(); 
+        onClose();
       } catch (err) {
         console.error("Failed to send email", err);
-        toast.error("Failed to send email ");
+        toast.error("Failed to send email");
+      } finally {
+        setIsSending(false);
       }
     };
 
@@ -115,7 +127,10 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
             rows={6}
             value={suggestion}
             placeholder="AI suggestion will appear here..."
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => {
+              setIsFocused(true);
+              setIsEdited(true);
+            }}
             onChange={(e) => {
               setSuggestion(e.target.value);
               setIsEdited(true);
@@ -126,9 +141,14 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
         <div className="flex justify-end mt-3 gap-2">
           <button
             onClick={handleSend}
-            className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600 transition"
+            disabled={isSending || (!isEdited && !isFocused)}
+            className={`px-4 py-1 rounded-md transition text-white ${
+              isSending || (!isEdited && !isFocused)
+                ? "bg-blue-300 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
           >
-            Send Reply
+            {isSending ? "Sending..." : "Send Reply"}
           </button>
         </div>
       </div>

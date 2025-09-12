@@ -36,24 +36,30 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
   const [draftId, setDraftId] = useState<string | null>(email.draftId || null);
   const [isEdited, setIsEdited] = useState<boolean>(false);
 
+  const [loadingAction, setLoadingAction] = useState<null | "back" | "send" | "delete">(null);
+
   const handleBack = async () => {
-    if (email.isDraft && draftId && isEdited) {
-      try {
+    setLoadingAction("back");
+    try {
+      if (email.isDraft && draftId && isEdited) {
         await emailService.updateDraft(draftId, draftContent, to, email.subject);
         setIsEdited(false);
-        toast.success("Draft updated successfully ");
-      } catch (err) {
-        console.error("Failed to save draft", err);
-        toast.error("Failed to save draft ");
+        toast.success("Draft updated successfully");
+      } else if (!email.isDraft && suggestionBoxRef.current) {
+        await suggestionBoxRef.current.saveDraftIfNeeded();
       }
-    } else if (!email.isDraft && suggestionBoxRef.current) {
-      await suggestionBoxRef.current.saveDraftIfNeeded();
+      onClose();
+    } catch (err) {
+      console.error("Failed to save draft", err);
+      toast.error("Failed to save draft");
+    } finally {
+      setLoadingAction(null);
     }
-    onClose();
   };
 
   const handleSend = async () => {
     if (!email.isDraft || !draftId) return;
+    setLoadingAction("send");
     try {
       await emailService.sendDraft(draftId, email.threadId, draftContent, to, email.subject);
       setDraftId(null);
@@ -63,13 +69,15 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
       onClose();
     } catch (err) {
       console.error("Failed to send email", err);
-      toast.error("Failed to send email ");
+      toast.error("Failed to send email");
+    } finally {
+      setLoadingAction(null);
     }
   };
 
-
   const handleDelete = async () => {
     if (!email.isDraft || !draftId) return;
+    setLoadingAction("delete");
     try {
       await emailService.deleteDraft(draftId);
       setDraftId(null);
@@ -79,19 +87,22 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
       onClose();
     } catch (err) {
       console.error("Failed to delete draft", err);
-      toast.error("Failed to delete draft ");
+      toast.error("Failed to delete draft");
+    } finally {
+      setLoadingAction(null);
     }
   };
 
   return (
     <div className="flex flex-col h-full max-h-screen bg-white rounded-lg shadow-lg mx-5 py-4 px-6">
-    
+
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-3 py-1 cursor-pointer"
+          disabled={loadingAction === "back"}
+          className="flex items-center gap-2 px-3 py-1 cursor-pointer disabled:opacity-50"
         >
-          ← Back
+          {loadingAction === "back" ? "⏳ Saving..." : "← Back"}
         </button>
         <span className="text-gray-500 text-sm">
           {new Date(email.date).toLocaleString()}
@@ -105,6 +116,7 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
         <span className="font-medium">To:</span> {to}
       </p>
 
+      {/* Body */}
       <div className="flex-1 overflow-y-auto py-4 px-2">
         <div
           className="prose max-w-full"
@@ -112,6 +124,7 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
         />
       </div>
 
+      {/* Draft actions */}
       {email.isDraft && draftId ? (
         <div className="mt-4 pt-4">
           <h3 className="font-semibold mb-2 text-gray-700">Draft</h3>
@@ -119,6 +132,7 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
             className="w-full p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-black"
             rows={8}
             value={draftContent}
+            onFocus={() => setIsEdited(true)}
             onChange={(e) => {
               setDraftContent(e.target.value);
               setIsEdited(true);
@@ -127,20 +141,23 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
           <div className="flex justify-end mt-3 gap-2">
             <button
               onClick={handleDelete}
-              className="bg-red-500 text-white px-4 py-1 rounded-md hover:bg-red-600 transition"
+              disabled={loadingAction === "delete"}
+              className="bg-red-500 text-white px-4 py-1 rounded-md hover:bg-red-600 transition disabled:opacity-50"
             >
-              Delete Draft
+              {loadingAction === "delete" ? "Deleting..." : "Delete Draft"}
             </button>
             <button
               onClick={handleSend}
-              className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600 transition"
+              disabled={loadingAction === "send"}
+              className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600 transition disabled:opacity-50"
             >
-              Send
+              {loadingAction === "send" ? "Sending..." : "Send"}
             </button>
           </div>
         </div>
       ) : (
-        !email.isDraft && email.aiSuggestion === "applicable" && (
+        !email.isDraft &&
+        email.aiSuggestion === "applicable" && (
           <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
         )
       )}

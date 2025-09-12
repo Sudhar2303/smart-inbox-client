@@ -20,7 +20,6 @@ export default function InboxPage() {
   const [refresh, setRefresh] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
-  // Sidebar state for mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +72,6 @@ export default function InboxPage() {
     }
   };
 
-  // Close sidebar when clicking outside (mobile)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -93,10 +91,8 @@ export default function InboxPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
       <div className="flex justify-between items-center px-4 py-2 shadow z-20 bg-white">
         <div className="flex items-center gap-2">
-          {/* Hamburger for mobile */}
           <button
             className="md:hidden p-2 rounded-md hover:bg-gray-200"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -121,16 +117,13 @@ export default function InboxPage() {
         {isAuthenticated && user && <UserProfileComponent user={user} />}
       </div>
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar mobile overlay */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-30 flex md:hidden">
             <div
               ref={sidebarRef}
               className="relative w-64 bg-white shadow-md flex flex-col"
             >
-              {/* Optional header inside mobile sidebar */}
               <div className="flex items-center justify-between p-4 border-b">
                 <span className="font-bold text-gray-800 text-lg">Menu</span>
                 <button
@@ -149,12 +142,10 @@ export default function InboxPage() {
           </div>
         )}
 
-        {/* Sidebar desktop */}
         <div className="hidden md:block w-64 flex-shrink-0">
           <SidebarComponent />
         </div>
 
-        {/* Email List / Detail */}
         <div className="flex-1 overflow-y-auto">
           {selectedEmail ? (
             <EmailDetailComponent

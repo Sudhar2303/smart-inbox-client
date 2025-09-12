@@ -2,7 +2,7 @@ import logo from "../../assets/logo.png"
 
 export default function HeaderComponent() {
   return (
-    <header className="py-4 px-8 bg-white flex items-center gap-2">
+    <header className="px-2 bg-white flex items-center gap-2">
 
       <img src={logo} alt="SmartInbox Logo" className="w-8 h-8" />
 

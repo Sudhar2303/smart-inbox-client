@@ -96,7 +96,8 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
   return (
     <div className="flex flex-col h-full max-h-screen bg-white rounded-lg shadow-lg mx-5 py-4 px-6">
 
-      <div className="flex items-center justify-between mb-4">
+      {/* Header with Back button and date */}
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <button
           onClick={handleBack}
           disabled={loadingAction === "back"}
@@ -109,36 +110,32 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
         </span>
       </div>
 
-      <h2 className="text-2xl font-semibold mb-2">{email.subject}</h2>
+      {/* Subject */}
+      <h2 className="text-xl sm:text-2xl font-semibold mb-1 flex-shrink-0">{email.subject}</h2>
 
-      <p className="text-sm text-gray-600 mb-4">
+      {/* From / To info */}
+      <p className="text-sm text-gray-600 mb-2 flex-shrink-0">
         <span className="font-medium">From:</span> {from} &nbsp;|&nbsp;
         <span className="font-medium">To:</span> {to}
       </p>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto py-4 px-2">
-        <div
-          className="prose max-w-full"
-          dangerouslySetInnerHTML={{ __html: safeHtml }}
-        />
-      </div>
-
-      {/* Draft actions */}
+      {/* Draft Mode */}
       {email.isDraft && draftId ? (
-        <div className="mt-4 pt-4">
-          <h3 className="font-semibold mb-2 text-gray-700">Draft</h3>
+        <div className="flex flex-col flex-1 overflow-hidden mt-2">
+          <h3 className="font-semibold mb-2 text-gray-700 flex-shrink-0">Draft</h3>
+
+          {/* Textarea takes remaining space */}
           <textarea
-            className="w-full p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-black"
-            rows={8}
+            className="flex-1 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none text-black resize-none mb-3"
             value={draftContent}
-            onFocus={() => setIsEdited(true)}
             onChange={(e) => {
               setDraftContent(e.target.value);
               setIsEdited(true);
             }}
           />
-          <div className="flex justify-end mt-3 gap-2">
+
+          {/* Buttons stay at the bottom */}
+          <div className="flex justify-end gap-2 flex-shrink-0">
             <button
               onClick={handleDelete}
               disabled={loadingAction === "delete"}
@@ -158,7 +155,15 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
       ) : (
         !email.isDraft &&
         email.aiSuggestion === "applicable" && (
-          <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
+          <div className="flex flex-col flex-1 overflow-hidden mt-2">
+            <div className="flex-1 overflow-y-auto py-2 px-2">
+              <div
+                className="prose max-w-full"
+                dangerouslySetInnerHTML={{ __html: safeHtml }}
+              />
+            </div>
+            <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
+          </div>
         )
       )}
     </div>

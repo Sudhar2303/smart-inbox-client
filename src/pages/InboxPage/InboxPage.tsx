@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import SidebarComponent from "../../components/SidebarComponent/SidebarComponent";
 import HeaderComponent from "../../components/HeaderComponent/HeaderComponent";
@@ -19,6 +19,10 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+
+  // Sidebar state for mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -69,26 +73,95 @@ export default function InboxPage() {
     }
   };
 
-  return (
-    <div className="h-screen flex flex-col">
+  // Close sidebar when clicking outside (mobile)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)
+      ) {
+        setSidebarOpen(false);
+      }
+    };
+    if (sidebarOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [sidebarOpen]);
 
-      <div className="flex justify-between items-center px-4 py-2 shadow z-10 bg-white">
-        <HeaderComponent />
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Header */}
+      <div className="flex justify-between items-center px-4 py-2 shadow z-20 bg-white">
+        <div className="flex items-center gap-2">
+          {/* Hamburger for mobile */}
+          <button
+            className="md:hidden p-2 rounded-md hover:bg-gray-200"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <svg
+              className="w-6 h-6 text-gray-700"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+          <HeaderComponent />
+        </div>
         {isAuthenticated && user && <UserProfileComponent user={user} />}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-64 flex-shrink-0">
+      {/* Main content */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar mobile overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-30 flex md:hidden">
+            <div
+              ref={sidebarRef}
+              className="relative w-64 bg-white shadow-md flex flex-col"
+            >
+              {/* Optional header inside mobile sidebar */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <span className="font-bold text-gray-800 text-lg">Menu</span>
+                <button
+                  className="p-1 rounded-md hover:bg-gray-200"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <SidebarComponent />
+            </div>
+            <div
+              className="flex-1 bg-black bg-opacity-30"
+              onClick={() => setSidebarOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Sidebar desktop */}
+        <div className="hidden md:block w-64 flex-shrink-0">
           <SidebarComponent />
         </div>
 
-        <div className="flex-1 overflow-y-auto mt-2">
+        {/* Email List / Detail */}
+        <div className="flex-1 overflow-y-auto">
           {selectedEmail ? (
             <EmailDetailComponent
               email={selectedEmail}
               onClose={() => {
                 setSelectedEmail(null);
-                triggerRefresh(); 
+                triggerRefresh();
               }}
             />
           ) : (
@@ -97,7 +170,7 @@ export default function InboxPage() {
               page={page}
               onNext={() => setPage((p) => p + 1)}
               onPrev={() => setPage((p) => Math.max(1, p - 1))}
-              onRefresh={triggerRefresh} 
+              onRefresh={triggerRefresh}
               loading={loading}
               onSelectEmail={(id) => openEmail(id)}
             />

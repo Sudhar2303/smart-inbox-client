@@ -46,8 +46,8 @@ export default function SignupPage() {
 
       <div className="text-center text-sm text-gray-500 mb-4">
         Don’t have an account?{" "}
-        <Link to="/signup" className="text-blue-600 hover:underline">
-            Sign up
+        <Link to="/login" className="text-blue-600 hover:underline">
+            login
         </Link>
       </div>
     

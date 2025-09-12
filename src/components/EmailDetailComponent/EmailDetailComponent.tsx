@@ -119,12 +119,11 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
         <span className="font-medium">To:</span> {to}
       </p>
 
-      {/* Draft Mode */}
       {email.isDraft && draftId ? (
+        // Draft only: textarea + buttons
         <div className="flex flex-col flex-1 overflow-hidden mt-2">
           <h3 className="font-semibold mb-2 text-gray-700 flex-shrink-0">Draft</h3>
 
-          {/* Textarea takes remaining space */}
           <textarea
             className="flex-1 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none text-black resize-none mb-3"
             value={draftContent}
@@ -134,7 +133,6 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
             }}
           />
 
-          {/* Buttons stay at the bottom */}
           <div className="flex justify-end gap-2 flex-shrink-0">
             <button
               onClick={handleDelete}
@@ -153,18 +151,18 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
           </div>
         </div>
       ) : (
-        !email.isDraft &&
-        email.aiSuggestion === "applicable" && (
-          <div className="flex flex-col flex-1 overflow-hidden mt-2">
-            <div className="flex-1 overflow-y-auto py-2 px-2">
-              <div
-                className="prose max-w-full"
-                dangerouslySetInnerHTML={{ __html: safeHtml }}
-              />
-            </div>
-            <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
+        <div className="flex flex-col flex-1 overflow-hidden mt-2">
+          <div className="flex-1 overflow-y-auto py-2 px-2">
+            <div
+              className="prose max-w-full"
+              dangerouslySetInnerHTML={{ __html: safeHtml }}
+            />
           </div>
-        )
+
+          {email.aiSuggestion === "applicable" && (
+            <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
+          )}
+        </div>
       )}
     </div>
   );

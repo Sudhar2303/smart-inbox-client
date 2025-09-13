@@ -5,6 +5,7 @@ import emailService from "../../services/emailService";
 
 export interface AiSuggestionBoxRef {
   saveDraftIfNeeded: () => Promise<void>;
+  refreshSuggestions?: (ctx: { status: string; meeting?: any }) => Promise<void>;
 }
 
 interface AiSuggestionBoxProps {
@@ -28,29 +29,25 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
     };
     const recipient = cleanEmail(email.to);
 
-    useEffect(() => {
-      if (draftId) return;
-
-      const fetchAISuggestion = async () => {
-        setIsLoading(true);
-        try {
-          const res = await emailService.generateAISuggestion(
-            email.body,
-            email.threadId
-          );
-          if (res?.data?.suggestion) {
-            setSuggestion(res.data.suggestion);
-          }
-        } catch (err) {
-          console.error("AI suggestion failed", err);
-          toast.error("Failed to load AI suggestion");
-        } finally {
-          setIsLoading(false);
+    const fetchAISuggestion = async (status?: string, meeting?: any) => {
+      setIsLoading(true);
+      try {
+        const res = await emailService.generateAISuggestion(
+          email.body,
+          email.threadId,
+          status,
+          meeting
+        );
+        if (res?.data?.suggestion) {
+          setSuggestion(res.data.suggestion);
         }
-      };
-
-      fetchAISuggestion();
-    }, [email.body, email.threadId, draftId]);
+      } catch (err) {
+        console.error("AI suggestion failed", err);
+        toast.error("Failed to load AI suggestion");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     useImperativeHandle(ref, () => ({
       saveDraftIfNeeded: async () => {
@@ -79,7 +76,14 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
           toast.error("Failed to save draft");
         }
       },
+      refreshSuggestions: async ({ status, meeting }) => {
+        await fetchAISuggestion(status, meeting);
+      },
     }));
+
+    useEffect(() => {
+      if (!draftId) fetchAISuggestion();
+    }, [draftId]);
 
     const handleSend = async () => {
       if (!isEdited && !isFocused) {
@@ -124,7 +128,7 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
             className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none ${
               isFocused ? "text-black" : "text-gray-400"
             }`}
-            rows={6}
+            rows={4}
             value={suggestion}
             placeholder="AI suggestion will appear here..."
             onFocus={() => {
@@ -141,14 +145,10 @@ const AiSuggestionBox = forwardRef<AiSuggestionBoxRef, AiSuggestionBoxProps>(
         <div className="flex justify-end mt-3 gap-2">
           <button
             onClick={handleSend}
-            disabled={isSending || (!isEdited && !isFocused)}
-            className={`px-4 py-1 rounded-md transition text-white ${
-              isSending || (!isEdited && !isFocused)
-                ? "bg-blue-300 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600"
-            }`}
+            disabled={isSending || isLoading}
+            className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600 transition disabled:opacity-50"
           >
-            {isSending ? "Sending..." : "Send Reply"}
+            {isSending ? "Sending..." : "Send"}
           </button>
         </div>
       </div>

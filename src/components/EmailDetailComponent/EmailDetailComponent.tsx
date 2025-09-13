@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { Email } from "../../types/email";
 import DOMPurify from "dompurify";
@@ -30,13 +30,86 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
     return tempDiv.textContent || tempDiv.innerText || "";
   };
 
+  const [emailSubject] = useState<string>(email.subject || "");
   const [draftContent, setDraftContent] = useState<string>(
     email.isDraft ? htmlToText(email.body || "") : ""
   );
-  const [draftId, setDraftId] = useState<string | null>(email.draftId || null);
+  const [draftId] = useState<string | null>(email.draftId || null);
   const [isEdited, setIsEdited] = useState<boolean>(false);
-
   const [loadingAction, setLoadingAction] = useState<null | "back" | "send" | "delete">(null);
+
+  const [meetingStatus, setMeetingStatus] = useState<"no" | "available" | "conflict">("no");
+  const [meetingInfo, setMeetingInfo] = useState<any>(null);
+  const [meetingFlags, setMeetingFlags] = useState<{ isDuplicate: boolean; hasConflict: boolean }>({
+    isDuplicate: false,
+    hasConflict: false,
+  });
+  const [loadingMeeting, setLoadingMeeting] = useState<boolean>(false);
+  const [addingEvent, setAddingEvent] = useState<boolean>(false);
+  const [eventAdded, setEventAdded] = useState<boolean>(false);
+
+  useEffect(() => {
+    const analyzeMeeting = async () => {
+      if (!email.subject || !email.body) return;
+      setLoadingMeeting(true);
+      try {
+        const res = await emailService.getMeetingInfo(email.subject, email.body);
+        if (res?.data) {
+          setMeetingStatus(res.data.status);
+          setMeetingInfo(res.data.meeting);
+          if (res.data.flags) setMeetingFlags(res.data.flags);
+        }
+      } catch (err) {
+        console.error("Meeting analysis failed:", err);
+      } finally {
+        setLoadingMeeting(false);
+      }
+    };
+    analyzeMeeting();
+  }, [email.subject, email.body]);
+
+  useEffect(() => {
+    const refreshAISuggestion = async () => {
+      if (
+        suggestionBoxRef.current?.refreshSuggestions &&
+        meetingInfo &&
+        meetingStatus !== "no"
+      ) {
+        await suggestionBoxRef.current.refreshSuggestions({
+          status: meetingStatus,
+          meeting: meetingInfo,
+        });
+      }
+    };
+    refreshAISuggestion();
+  }, [suggestionBoxRef.current, meetingInfo, meetingStatus]);
+
+  const handleAddToCalendar = async () => {
+    if (!meetingInfo || addingEvent || meetingFlags?.isDuplicate || eventAdded) return;
+    setAddingEvent(true);
+    try {
+      const res = await emailService.createNewCalendarEvent(meetingInfo, emailSubject);
+      if (res?.data) {
+        toast.success("Event added to calendar ✅");
+        setMeetingStatus("available");
+        setEventAdded(true);
+
+        if (suggestionBoxRef.current?.refreshSuggestions) {
+          await suggestionBoxRef.current.refreshSuggestions({
+            status: "available",
+            meeting: meetingInfo,
+          });
+        }
+      } else {
+        toast.error("Failed to add event ❌");
+      }
+    } catch (err) {
+      console.error("Add to calendar failed:", err);
+      toast.error("Error while adding event");
+    } finally {
+      setAddingEvent(false);
+    }
+  };
 
   const handleBack = async () => {
     setLoadingAction("back");
@@ -62,8 +135,6 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
     setLoadingAction("send");
     try {
       await emailService.sendDraft(draftId, email.threadId, draftContent, to, email.subject);
-      setDraftId(null);
-      setDraftContent("");
       setIsEdited(false);
       toast.success("Email sent successfully 📧");
       onClose();
@@ -80,8 +151,6 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
     setLoadingAction("delete");
     try {
       await emailService.deleteDraft(draftId);
-      setDraftId(null);
-      setDraftContent("");
       setIsEdited(false);
       toast("Draft deleted 🗑️");
       onClose();
@@ -96,7 +165,6 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
   return (
     <div className="flex flex-col h-full max-h-screen bg-white rounded-lg shadow-lg mx-5 py-4 px-6">
 
-      {/* Header with Back button and date */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <button
           onClick={handleBack}
@@ -110,20 +178,16 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
         </span>
       </div>
 
-      {/* Subject */}
       <h2 className="text-xl sm:text-2xl font-semibold mb-1 flex-shrink-0">{email.subject}</h2>
 
-      {/* From / To info */}
       <p className="text-sm text-gray-600 mb-2 flex-shrink-0">
         <span className="font-medium">From:</span> {from} &nbsp;|&nbsp;
         <span className="font-medium">To:</span> {to}
       </p>
 
       {email.isDraft && draftId ? (
-        // Draft only: textarea + buttons
         <div className="flex flex-col flex-1 overflow-hidden mt-2">
           <h3 className="font-semibold mb-2 text-gray-700 flex-shrink-0">Draft</h3>
-
           <textarea
             className="flex-1 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none text-black resize-none mb-3"
             value={draftContent}
@@ -132,7 +196,6 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
               setIsEdited(true);
             }}
           />
-
           <div className="flex justify-end gap-2 flex-shrink-0">
             <button
               onClick={handleDelete}
@@ -158,6 +221,38 @@ export default function EmailDetailComponent({ email, onClose }: EmailDetailProp
               dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
           </div>
+
+          {loadingMeeting && (
+            <p className="text-sm text-gray-500">Analyzing meeting info...</p>
+          )}
+
+          {(meetingStatus === "available" || meetingStatus === "conflict") && meetingInfo && (
+            <div className="flex justify-between items-center w-full">
+              <div className="flex items-center gap-2">
+                {meetingStatus === "conflict" && (
+                  <p className="text-red-500 text-sm">
+                    ⚠️ This meeting conflicts with another event.
+                  </p>
+                )}
+                {meetingFlags?.isDuplicate && (
+                  <span className="text-yellow-500 text-sm">
+                    ⚠️ This meeting already exists.
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <button
+                  onClick={handleAddToCalendar}
+                  disabled={addingEvent || meetingFlags?.isDuplicate || eventAdded}
+                  className="bg-blue-500 text-white px-4 py-1 mx-10 rounded-md hover:bg-green-600 transition disabled:opacity-50"
+                >
+                  {eventAdded ? "Added to Calendar" : addingEvent ? "Adding..." : " Add to Calendar"}
+                </button>
+              </div>
+            </div>
+          )}
+
 
           {email.aiSuggestion === "applicable" && (
             <AiSuggestionBox ref={suggestionBoxRef} email={email} onClose={onClose} />
